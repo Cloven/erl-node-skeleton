@@ -1,0 +1,12 @@
+{application, skelnode,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { skelnode_app, []}},
+  {env, []}
+ ]}.
