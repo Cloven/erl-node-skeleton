@@ -5,4 +5,5 @@
               {applications,[kernel,stdlib]},
               {mod,{skel_app,[]}},
               {env,[]},
-              {modules,[http_handler,skel_app,skel_engine,skel_sup]}]}.
+              {modules,[http_handler,skel_app,skel_engine,skel_sup,
+                        ws_handler]}]}.
