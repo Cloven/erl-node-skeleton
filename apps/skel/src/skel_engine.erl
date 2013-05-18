@@ -37,6 +37,7 @@ init(Args) ->
     application:start(ranch),
     application:start(cowboy),
     start_http(),
+    start_udp(),
     {ok, Args}.
 
 handle_call(hello, _From, State) ->
@@ -63,6 +64,9 @@ code_change(_OldVsn, State, _Extra) ->
 
 greet() ->
   gen_server:call(?MODULE, {hello}).
+
+start_udp() ->
+  udp_server:start().
 
 start_http() ->
   Dispatch = cowboy_router:compile([
