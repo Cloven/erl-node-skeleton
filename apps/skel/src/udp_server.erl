@@ -85,10 +85,11 @@ heartbeat(Socket) ->
   
 handle(Socket, Host, Port, ConnState, <<Command/utf8, Id:32, Seq:16, Ack:16, Appstring/binary>>) ->
   %io:format("handling: ~p~n", [{Host, Port, ConnState, Command, Id, Seq, Ack, Appstring}]),
-  ets:update_counter(udp_clients, { Host, Port }, 1),
-  ets:update_counter(pregistry, Id, 1),
   case Command of
     65 ->
+      io:format("got back packet with id ~p~n", [Id]),
+      ets:update_counter(udp_clients, { Host, Port }, 1),
+      ets:update_counter(pregistry, Id, 1),
       ok;
     _ -> 
     Outbound = <<65:8, Id:32, Seq:16, Ack:16, Appstring/binary>>,
