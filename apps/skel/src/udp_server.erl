@@ -93,7 +93,7 @@ handle(Socket, Host, Port, ConnState, <<Command/utf8, Id:32, Seq:16, Ack:16, App
       ok;
     _ -> 
     Outbound = <<65:8, Id:32, Seq:16, Ack:16, Appstring/binary>>,
-    gen_udp:send(Socket, Host, Port, Outbound)
+    gen_udp:send(Socket, Host, 9595, Outbound)
   end;
 handle(_, _, _, _, _) -> err.
 
