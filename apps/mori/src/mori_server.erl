@@ -38,12 +38,17 @@ init(_) ->
   State = { Serv, ClientSlots },
   {ok, State}.
 
-handle_call(new_client, _From, State) ->
-  io:format("new_client!~n", []),
-  ClientId = 2432,
-  {reply, {ok, ClientId}, State};
+handle_call({new_client, ClientTuple}, _From, State) ->
+  {Serv, ClientSlots} = State,
+  {Response, ClientId, NewSlots} = slot:reserve(ClientSlots, ClientTuple),
+  {reply, {Response, ClientId}, {Serv, NewSlots}};
 handle_call(info, _From, State) ->
-  {reply, ok, State};
+  {reply, {ok, State}, State};
+handle_call({release, ClientTuple}, _From, State) ->
+  {Serv, ClientSlots} = State,
+  {Response, NewSlots} = slot:release(ClientSlots, ClientTuple),
+  NewState = {Serv, NewSlots},
+  {reply, {Response, NewState}, NewState};
 handle_call(_, _From, State) ->
   {reply, ok, State}.
 
@@ -71,11 +76,13 @@ info() ->
   gen_server:call(?MODULE, {info}).
 
 server(Port) ->
+  process_flag(trap_exit, true),
   {ok, Socket} = gen_udp:open(Port, [binary, {active, false}, {recbuf, 65536}, {sndbuf, 65536}, {buffer, 65536}, {read_packets, 16000}]),
   io:format("mori starting.  Socket:~p~n",[Socket]),
-  ets:new(udp_clients, [set, named_table]),
-  Heartbeat = spawn(fun() -> heartbeat(Socket) end),
-  link(Heartbeat),
+  ets:new(udp_clients, [set, named_table, public]),
+  ets:insert(udp_clients, { packets_seen, 0 }),
+  %Heartbeat = spawn(fun() -> heartbeat(Socket) end),
+  %link(Heartbeat),
   socket_loop(Socket).
 
 socket_loop(Socket) ->
@@ -85,36 +92,22 @@ socket_loop(Socket) ->
       case ets:lookup(udp_clients, { Host, Port }) of
         [] -> 
           % new client
-          ets:insert(udp_clients, { { Host, Port }, 0 }),
-          handle(Socket, Host, Port, {1}, Bin);
-        [{{Host, Port}, ConnState}] ->
-          handle(Socket, Host, Port, ConnState, Bin);
+          Pid = mori_client:start({Socket, Host, Port}),
+          ets:insert(udp_clients, { { Host, Port }, Pid });
+          %io:format("added client: ~p~n", [Pid]);
+        [{{Host, Port}, Pid}] ->
+          %io:format("already have that client @ ~p~n", [Pid]),
+          Pid ! {cmd, Bin};
         [_Unknown] -> 
           io:format("bad news!~n")
-
-          % something bad has happened
-      end,
-      socket_loop(Socket)
-  end.
-
-heartbeat(Socket) ->
-  timer:sleep(1000),
-  ets:foldl(
-    fun({Key, _}, _) ->
-        {Host, Port} = Key,
-        gen_udp:send(Socket, Host, Port, <<65:8, 1:32, 1:16, 1:16, "pong" >>)
-    end, heartbeatnotused, udp_clients),
-  heartbeat(Socket).
-
-handle(Socket, Host, Port, ConnState, <<Command/utf8, Id:32, Seq:16, Ack:16, Appstring/binary>>) ->
-  io:format("handling: ~p~n", [{Host, Port, ConnState, Command, Id, Seq, Ack, Appstring}]),
-  case Command of
-    65 ->
-      io:format("got back packet with id ~p~n", [Id]),
-      ets:update_counter(udp_clients, { Host, Port }, 1),
-      ok;
-    _ -> 
-    Outbound = <<65:8, Id:32, Seq:16, Ack:16, Appstring/binary>>,
-    gen_udp:send(Socket, Host, Port, Outbound)
-  end;
-handle(_, _, _, _, _) -> err.
+      end;
+    {'EXIT', _FromPid, Reason} ->
+      case Reason of
+        {shutdown, {Host, Port}} ->
+            ets:delete(udp_clients, {Host, Port});
+        _ ->
+          io:format("weird reason: ~p~n", [Reason]),
+          ok
+      end
+  end,
+  socket_loop(Socket).

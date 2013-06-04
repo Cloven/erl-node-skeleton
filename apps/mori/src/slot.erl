@@ -3,14 +3,14 @@
 -export([reserve/2, release/2]).
 
 reserve(L, X) ->
-  reserve(L, X, []).
+  reserve(L, X, [], 1).
 
-reserve([E | Rest], Insertion, AccList) ->
+reserve([E | Rest], Insertion, AccList, Acc) ->
   case E == 0 of
-    true -> {ok, lists:reverse(lists:reverse(Rest) ++ [ Insertion | AccList])};
-    false -> reserve(Rest, Insertion, [E | AccList])
+    true -> {ok, Acc, lists:reverse(lists:reverse(Rest) ++ [ Insertion | AccList])};
+    false -> reserve(Rest, Insertion, [E | AccList], Acc + 1)
   end;
-reserve([], _, AccList) -> {noslot, lists:reverse(AccList)}.
+reserve([], _, AccList, _) -> {noslot, 0, lists:reverse(AccList)}.
 
 release(L, X) ->
   Pos = findinlist(L, X),
@@ -38,3 +38,4 @@ findinlist([E | Rest], X, Acc) ->
     true -> Acc;
     false -> findinlist(Rest, X, Acc + 1)
   end.
+

@@ -1,0 +1,12 @@
+{application, mori,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { mori_app, []}},
+  {env, []}
+ ]}.
