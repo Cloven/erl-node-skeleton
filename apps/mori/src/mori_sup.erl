@@ -26,4 +26,3 @@ start_link() ->
 init([]) ->
     MoriServer = ?CHILD(mori_server, worker),
     {ok, { {one_for_one, 5, 10}, [MoriServer]} }.
-

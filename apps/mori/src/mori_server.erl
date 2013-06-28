@@ -32,10 +32,8 @@ start_link() ->
 %% ------------------------------------------------------------------
 
 init(_) ->
-  Serv = spawn(fun() -> server(9595) end),
-  ClientSlots = lists:duplicate(16, 0),
-  link(Serv),
-  State = { Serv, ClientSlots },
+  Serv = spawn(fun() -> initialize_services(9595) end),
+  State = { Serv },
   {ok, State}.
 
 handle_call({new_client, ClientTuple}, _From, State) ->
@@ -75,7 +73,7 @@ reserve() ->
 info() ->
   gen_server:call(?MODULE, {info}).
 
-server(Port) ->
+initialize_services(Port) ->
   process_flag(trap_exit, true),
   {ok, Socket} = gen_udp:open(Port, [binary, {active, false}, {recbuf, 65536}, {sndbuf, 65536}, {buffer, 65536}, {read_packets, 16000}]),
   io:format("mori starting.  Socket:~p~n",[Socket]),
@@ -93,20 +91,17 @@ socket_loop(Socket) ->
         [] -> 
           % new client
           Pid = mori_client:start({Socket, Host, Port}),
-          ets:insert(udp_clients, { { Host, Port }, Pid });
-          %io:format("added client: ~p~n", [Pid]);
-        [{{Host, Port}, Pid}] ->
-          %io:format("already have that client @ ~p~n", [Pid]),
+          ets:insert(udp_clients, { { Host, Port }, Pid }),
           Pid ! {cmd, Bin};
-        [_Unknown] -> 
-          io:format("bad news!~n")
+        [{{Host, Port}, Pid}] ->
+          Pid ! {cmd, Bin}
       end;
-    {'EXIT', _FromPid, Reason} ->
+    {'EXIT', FromPid, Reason} ->
       case Reason of
         {shutdown, {Host, Port}} ->
             ets:delete(udp_clients, {Host, Port});
         _ ->
-          io:format("weird reason: ~p~n", [Reason]),
+          io:format("unusual exit: ~p~n", [[FromPid, Reason]]),
           ok
       end
   end,

@@ -25,5 +25,5 @@ start_link() ->
 
 init([]) ->
     SkelEngine = ?CHILD(skel_engine, worker),
-    SkelUdp = ?CHILD(udp_server, worker),
-    {ok, { {one_for_one, 5, 10}, [ SkelEngine, SkelUdp ]} }.
+    %SkelUdp = ?CHILD(udp_server, worker),
+    {ok, { {one_for_one, 5, 10}, [ SkelEngine ]} }.

@@ -28,13 +28,6 @@ handle_info(stats, State) ->
         io:format("~p: ~p~n", [{Host, Port}, ConnState])
     end, infonotused, udp_clients),
   {noreply, State};
-handle_info({makespam, Ip}, State) ->
-  spam(10000, Ip, 9595, 1),
-    {noreply, State};
-handle_info(makespam, State) ->
-  io:format("spamming~n"),
-  spam(10000, {166,78,12,187}, 9595, 1),
-  {noreply, State};
 handle_info(Info, State) ->
     io:format("got message: ~p~n", [Info]),
     {noreply, State}.
@@ -50,8 +43,8 @@ server(Port) ->
   io:format("server opened socket:~p~n",[Socket]),
   ets:new(udp_clients, [set, named_table]),
   ets:new(pregistry, [set, named_table, public]),
-  %Heartbeat = spawn(fun() -> heartbeat(Socket) end),
-  %link(Heartbeat),
+  Heartbeat = spawn(fun() -> heartbeat(Socket) end),
+  link(Heartbeat),
   loop(Socket).
 
 loop(Socket) ->
@@ -76,13 +69,12 @@ loop(Socket) ->
 heartbeat(Socket) ->
   timer:sleep(1000),
   ets:foldl(
-    fun({Key, ConnState}, _) ->
-        {Host, Port} = Key
-        %gen_udp:send(Socket, Host, Port, <<65:8>>),
+    fun({Key, _}, _) ->
+        {Host, Port} = Key,
+        gen_udp:send(Socket, Host, Port, <<65:8, 1:32, 1:16, 1:16, "pong" >>)
     end, heartbeatnotused, udp_clients),
   heartbeat(Socket).
 
-  
 handle(Socket, Host, Port, ConnState, <<Command/utf8, Id:32, Seq:16, Ack:16, Appstring/binary>>) ->
   %io:format("handling: ~p~n", [{Host, Port, ConnState, Command, Id, Seq, Ack, Appstring}]),
   case Command of
@@ -93,24 +85,6 @@ handle(Socket, Host, Port, ConnState, <<Command/utf8, Id:32, Seq:16, Ack:16, App
       ok;
     _ -> 
     Outbound = <<65:8, Id:32, Seq:16, Ack:16, Appstring/binary>>,
-    gen_udp:send(Socket, Host, 9595, Outbound)
+    gen_udp:send(Socket, Host, Port, Outbound)
   end;
 handle(_, _, _, _, _) -> err.
-
-spam(Amount, Host, Port, PacketLength) ->
-  {ok, Socket} = gen_udp:open(5599, [binary, {active, false}, {sndbuf, 65536}, {buffer, 65536}]),
-  spam_impl(Amount, Socket, Host, Port, PacketLength),
-  gen_udp:close(Socket).
-
-spam_impl(0, _, _, _, _) -> ok;
-spam_impl(Amount, Socket, Host, Port, PacketLength) ->
-  Seq = 0,
-  Ack = 0,
-  Appstring = <<"boop">>,
-  Outbound = <<99:8, Amount:32, Seq:16, Ack:16, Appstring/binary>>,
-  timer:sleep(1),
-  erlang:yield(),
-  gen_udp:send(Socket, Host, Port, Outbound),
-  ets:insert(pregistry, { Amount, 0 }),
-  spam_impl(Amount -1, Socket, Host, Port, PacketLength).
-  

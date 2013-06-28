@@ -1,0 +1,4 @@
+#!/bin/sh
+cd ..
+~/p/erl-node-skeleton/rebar compile
+erl -pa ./ebin -s mori_app start

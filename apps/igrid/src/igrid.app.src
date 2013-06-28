@@ -1,0 +1,12 @@
+{application, igrid,
+ [
+  {description, "Interest Grid"},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { igrid_app, []}},
+  {env, []}
+ ]}.
